@@ -18,7 +18,7 @@ func main() {
 	if err := initDB(dbConn); err != nil {
 		log.Fatal("connection with db error : ", err)
 	}
-	apiServer := api.NewAPIServer(":8080")
+	apiServer := api.NewAPIServer(":8080", dbConn)
 	if err := apiServer.Run(); err != nil {
 		log.Fatal("error running api server")
 	}
