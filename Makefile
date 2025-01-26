@@ -5,7 +5,7 @@ run: build
 	@./bin/restapi
 
 air:
-	@air -c "C:\Kerja\Pengembangan Diri\Belajar Golang\learn-rest-api\.air.toml"
+	@air
 
 migration: 
 	@migrate create -ext sql -dir cmd/migrate/migrations $(filter-out $@, $(MAKECMDGOALS))
