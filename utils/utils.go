@@ -3,13 +3,19 @@ package utils
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 
 	"github.com/go-playground/validator/v10"
 )
 
 var Validate = validator.New()
+
+type JSONResponse struct {
+	Status  int         `json:"status"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data"`
+	Errors  interface{} `json:"errors"`
+}
 
 func ParseJSON(r *http.Request, value any) error {
 	if r.Body == nil {
@@ -19,15 +25,23 @@ func ParseJSON(r *http.Request, value any) error {
 	return json.NewDecoder(r.Body).Decode(value)
 }
 
-func WriteJSON(w http.ResponseWriter, status int, value any) error {
+func WriteJSON(w http.ResponseWriter, status int, message string, value interface{}, errors interface{}) error {
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(status)
 
-	log.Println(value)
+	if errors == nil {
+		errors = map[string]string{}
+	}
 
-	return json.NewEncoder(w).Encode(value)
+	response := JSONResponse{
+		Status:  status,
+		Message: "testing",
+		Data:    value,
+		Errors:  errors,
+	}
+	return json.NewEncoder(w).Encode(response)
 }
 
 func WriteError(w http.ResponseWriter, status int, err error) {
-	WriteJSON(w, status, map[string]string{"error": err.Error()})
+	WriteJSON(w, status, "error", nil, err.Error())
 }
