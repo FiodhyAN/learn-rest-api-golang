@@ -7,11 +7,16 @@ import (
 )
 
 type Config struct {
-	DBHost     string
-	DBPort     string
-	DBUser     string
-	DBPassword string
-	DBName     string
+	DBHost       string
+	DBPort       string
+	DBUser       string
+	DBPassword   string
+	DBName       string
+	SMTPHost     string
+	SMTPPort     string
+	SMTPUsername string
+	SMTPPassword string
+	SMTPEmail    string
 }
 
 var Envs = initConfig()
@@ -20,11 +25,16 @@ func initConfig() Config {
 	godotenv.Load()
 
 	return Config{
-		DBHost:     getENV("DB_HOST", "localhost"),
-		DBPort:     getENV("DB_PORT", "5432"),
-		DBUser:     getENV("DB_USER", "postgres"),
-		DBPassword: getENV("DB_PASSWORD", "postgres"),
-		DBName:     getENV("DB_NAME", "postgres"),
+		DBHost:       getENV("DB_HOST", "localhost"),
+		DBPort:       getENV("DB_PORT", "5432"),
+		DBUser:       getENV("DB_USER", "postgres"),
+		DBPassword:   getENV("DB_PASSWORD", "postgres"),
+		DBName:       getENV("DB_NAME", "postgres"),
+		SMTPHost:     getENV("SMTP_HOST", ""),
+		SMTPPort:     getENV("SMTP_PORT", ""),
+		SMTPUsername: getENV("SMTP_USERNAME", ""),
+		SMTPPassword: getENV("SMTP_PASSWORD", ""),
+		SMTPEmail:    getENV("SMTP_EMAIL", ""),
 	}
 }
 

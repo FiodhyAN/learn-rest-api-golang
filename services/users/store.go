@@ -15,10 +15,10 @@ func NewUserStore(db *sql.DB) *Store {
 	return &Store{db: db}
 }
 
-func (s *Store) GetUserByEmail(email string) (*types.User, error) {
+func (s *Store) GetUser(username string) (*types.User, error) {
 	user := new(types.User)
 
-	if err := s.db.QueryRow("SELECT * FROM users WHERE email = $1", email).Scan(&user.ID, &user.Username, &user.Email, &user.Password, &user.CreatedAt); err != nil {
+	if err := s.db.QueryRow("SELECT * FROM users WHERE email = $1 OR username = $1", username).Scan(&user.ID, &user.Username, &user.Email, &user.Password, &user.CreatedAt); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
