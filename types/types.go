@@ -4,10 +4,12 @@ import "time"
 
 type UserStore interface {
 	GetUser(email string) (*User, error)
-	CreateUser(user User) error
+	CreateUser(user User) (*User, error)
+	UpdateUserVerificationExpired(*User, time.Time, string) error
 }
 
 type RegisterPayload struct {
+	Name     string `json:"name" validate:"required"`
 	Username string `json:"username" validate:"required"`
 	Email    string `json:"email" validate:"required,email"`
 	Password string `json:"password" validate:"required,password"`
@@ -19,9 +21,17 @@ type LoginUserPayload struct {
 }
 
 type User struct {
-	ID        int
-	Username  string
-	Email     string
-	Password  string
-	CreatedAt time.Time
+	ID                         string
+	Name                       string
+	Username                   string
+	Email                      string
+	Password                   string
+	EmailVerificationExpiresAt time.Time
+	CreatedAt                  time.Time
 }
+
+// type EmailRequest struct {
+// 	to      []string
+// 	subject string
+// 	body    string
+// }

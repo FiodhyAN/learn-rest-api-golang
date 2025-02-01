@@ -1,7 +1,9 @@
 package users
 
 import (
+	"encoding/base64"
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/FiodhyAN/learn-rest-api-golang/auth"
@@ -75,19 +77,20 @@ func (h *Handler) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := utils.SendMail(); err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("failed to send email"))
-		return
-	}
-
-	err = h.store.CreateUser(types.User{
+	createdUser, err := h.store.CreateUser(types.User{
+		Name:     payload.Name,
 		Username: payload.Username,
 		Email:    payload.Email,
 		Password: hashedPassword,
 	})
 
+	if err := utils.SendVerificationMail(h.store, createdUser); err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("query database error"))
+		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -95,4 +98,20 @@ func (h *Handler) handleRegister(w http.ResponseWriter, r *http.Request) {
 		"username": payload.Username,
 		"email":    payload.Email,
 	}, nil)
+}
+
+func (h *Handler) handleTest(w http.ResponseWriter, r *http.Request) {
+	encrypted, err := utils.EncryptText(`testing`)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	encoded := base64.URLEncoding.EncodeToString([]byte(encrypted))
+	decoded, _ := base64.URLEncoding.DecodeString(encoded)
+	decrypted, err := utils.DecryptText(encrypted)
+	if err != nil {
+		log.Println(err)
+	}
+	log.Println(string(decrypted), encoded, string(decoded))
 }

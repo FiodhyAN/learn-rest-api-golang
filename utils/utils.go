@@ -1,10 +1,13 @@
 package utils
 
 import (
+	"bytes"
+	"crypto/aes"
+	"crypto/cipher"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/smtp"
 
 	"github.com/FiodhyAN/learn-rest-api-golang/config"
 	"github.com/go-playground/validator/v10"
@@ -48,25 +51,61 @@ func WriteError(w http.ResponseWriter, status int, err error) {
 	WriteJSON(w, status, "error", nil, err.Error())
 }
 
-func SendMail() error {
-	toList := []string{"example@gmail.com"}
-	subject := "Subject: Test Email\n"
-	msg := "Hello geeks!!!\n"
-	body := []byte("From: " + config.Envs.SMTPEmail + "\n" +
-		"To: " + toList[0] + "\n" +
-		subject + "\n" + msg)
+func EncryptText(plainText string) (string, error) {
+	var plainTextBlock []byte
+	length := len(plainText)
 
-	mail_host := config.Envs.SMTPHost
-	mail_port := config.Envs.SMTPPort
-	mail_username := config.Envs.SMTPUsername
-	mail_from := config.Envs.SMTPEmail
-	mail_password := config.Envs.SMTPPassword
-
-	mail_auth := smtp.PlainAuth("", mail_username, mail_password, mail_host)
-
-	if err := smtp.SendMail(mail_host+":"+mail_port, mail_auth, mail_from, toList, body); err != nil {
-		return err
+	if length%16 != 0 {
+		extendBlock := 16 - (length % 16)
+		plainTextBlock = make([]byte, length+extendBlock)
+		copy(plainTextBlock[length:], bytes.Repeat([]byte{uint8(extendBlock)}, extendBlock))
+	} else {
+		plainTextBlock = make([]byte, length)
 	}
 
-	return nil
+	copy(plainTextBlock, plainText)
+	block, err := aes.NewCipher([]byte(config.Envs.EncryptKey))
+
+	if err != nil {
+		return "", err
+	}
+
+	ciphertext := make([]byte, len(plainTextBlock))
+	mode := cipher.NewCBCEncrypter(block, []byte(config.Envs.EncryptIv))
+	mode.CryptBlocks(ciphertext, plainTextBlock)
+
+	str := base64.StdEncoding.EncodeToString(ciphertext)
+
+	return str, nil
+}
+
+func DecryptText(encryptText string) ([]byte, error) {
+	ciphertext, err := base64.StdEncoding.DecodeString(encryptText)
+
+	if err != nil {
+		return nil, err
+	}
+
+	block, err := aes.NewCipher([]byte(config.Envs.EncryptKey))
+
+	if err != nil {
+		return nil, err
+	}
+
+	if len(ciphertext)%aes.BlockSize != 0 {
+		return nil, fmt.Errorf("block size cant be zero")
+	}
+
+	mode := cipher.NewCBCDecrypter(block, []byte(config.Envs.EncryptIv))
+	mode.CryptBlocks(ciphertext, ciphertext)
+	ciphertext = PKCS5UnPadding(ciphertext)
+
+	return ciphertext, nil
+}
+
+func PKCS5UnPadding(src []byte) []byte {
+	length := len(src)
+	unpadding := int(src[length-1])
+
+	return src[:(length - unpadding)]
 }

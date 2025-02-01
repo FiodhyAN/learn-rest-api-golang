@@ -17,6 +17,9 @@ type Config struct {
 	SMTPUsername string
 	SMTPPassword string
 	SMTPEmail    string
+	EncryptKey   string
+	EncryptIv    string
+	FrontendUrl  string
 }
 
 var Envs = initConfig()
@@ -35,6 +38,9 @@ func initConfig() Config {
 		SMTPUsername: getENV("SMTP_USERNAME", ""),
 		SMTPPassword: getENV("SMTP_PASSWORD", ""),
 		SMTPEmail:    getENV("SMTP_EMAIL", ""),
+		EncryptKey:   GenerateRandomString(32),
+		EncryptIv:    GenerateRandomString(16),
+		FrontendUrl:  getENV("FRONTEND_URL", "http://localhost:3000"),
 	}
 }
 
