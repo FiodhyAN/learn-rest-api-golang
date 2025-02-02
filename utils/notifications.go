@@ -25,14 +25,19 @@ func SendVerificationMail(store types.UserStore, user *types.User) error {
 		return err
 	}
 	verificationLink := config.Envs.FrontendUrl + `/verify-email?userId=` + encryptedID + `&token=` + encryptedVerificationToken
+
 	expirationDate := time.Now().AddDate(0, 0, 1)
+	finalFormattedDate, err := FormatDate(expirationDate)
+	if err != nil {
+		return err
+	}
 
 	templateData := struct {
 		VerificationLink string
-		ExpirationDate   time.Time
+		ExpirationDate   string
 	}{
 		VerificationLink: verificationLink,
-		ExpirationDate:   expirationDate,
+		ExpirationDate:   finalFormattedDate,
 	}
 
 	toList := []string{user.Email}

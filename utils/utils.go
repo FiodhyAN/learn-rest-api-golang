@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/FiodhyAN/learn-rest-api-golang/config"
 	"github.com/go-playground/validator/v10"
@@ -108,4 +109,18 @@ func PKCS5UnPadding(src []byte) []byte {
 	unpadding := int(src[length-1])
 
 	return src[:(length - unpadding)]
+}
+
+func FormatDate(date time.Time) (string, error) {
+	location, err := time.LoadLocation("Asia/Jakarta")
+	if err != nil {
+		fmt.Println("Error loading location:", err)
+		return "", err
+	}
+	expirationDateInLocation := date.In(location)
+	formattedDate := expirationDateInLocation.Format("Mon Jan 2 2006 15:04:05")
+	timeZoneName := "Western Indonesia Time"
+	finalFormattedDate := fmt.Sprintf("%s (%s)", formattedDate, timeZoneName)
+
+	return finalFormattedDate, nil
 }
