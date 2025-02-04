@@ -26,6 +26,7 @@ type User struct {
 	Username                   string
 	Email                      string
 	Password                   string
+	Role                       string
 	EmailVerificationExpiresAt time.Time
 	CreatedAt                  time.Time
 }

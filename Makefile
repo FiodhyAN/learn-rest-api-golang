@@ -4,6 +4,12 @@ build:
 run: build
 	@./bin/restapi
 
+build-worker:
+	@go build -o bin/worker cmd/worker/main.go
+
+run-worker: build-worker
+	@./bin/worker
+
 air:
 	@air
 

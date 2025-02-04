@@ -1,15 +1,19 @@
 package users
 
 import (
+	// "fmt"
 	"encoding/base64"
 	"fmt"
 	"log"
 	"net/http"
 
 	"github.com/FiodhyAN/learn-rest-api-golang/auth"
+	"github.com/FiodhyAN/learn-rest-api-golang/config"
+	"github.com/FiodhyAN/learn-rest-api-golang/tasks"
 	"github.com/FiodhyAN/learn-rest-api-golang/types"
 	"github.com/FiodhyAN/learn-rest-api-golang/utils"
 	"github.com/go-playground/validator/v10"
+	"github.com/hibiken/asynq"
 )
 
 func (h *Handler) handleLogin(w http.ResponseWriter, r *http.Request) {
@@ -83,20 +87,30 @@ func (h *Handler) handleRegister(w http.ResponseWriter, r *http.Request) {
 		Email:    payload.Email,
 		Password: hashedPassword,
 	})
-
-	if err := utils.SendVerificationMail(h.store, createdUser); err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, err)
-		return
-	}
-
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
 
+	client := asynq.NewClient(asynq.RedisClientOpt{Addr: config.Envs.RedisHost + ":" + config.Envs.RedisPort})
+	defer client.Close()
+
+	task, err := tasks.NewVerificationEmail(*createdUser)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+	}
+
+	info, err := client.Enqueue(task)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+	}
+	log.Println("info id: " + info.ID + "info queue: " + info.Queue)
+
 	utils.WriteJSON(w, http.StatusOK, "Successfully registered", map[string]string{
+		"Name":     payload.Name,
 		"username": payload.Username,
 		"email":    payload.Email,
+		"role":     createdUser.Role,
 	}, nil)
 }
 

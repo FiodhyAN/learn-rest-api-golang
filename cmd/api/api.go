@@ -36,8 +36,8 @@ func (s *APIServer) Run() error {
 	public := router.PathPrefix("/api").Subrouter()
 	userStore := users.NewUserStore(s.db)
 	userHandler := users.NewHandler(userStore)
-	userHandler.RegisterRoutes(public)
 
+	userHandler.RegisterRoutes(public)
 	log.Println("Listening on port", s.addr)
 
 	return http.ListenAndServe(s.addr, corsHandler)
