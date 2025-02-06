@@ -1,11 +1,10 @@
 package users
 
 import (
-	// "fmt"
-	"encoding/base64"
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/FiodhyAN/learn-rest-api-golang/auth"
 	"github.com/FiodhyAN/learn-rest-api-golang/config"
@@ -66,7 +65,7 @@ func (h *Handler) handleRegister(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.store.GetUser(payload.Username)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("query database error"))
+		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -114,18 +113,82 @@ func (h *Handler) handleRegister(w http.ResponseWriter, r *http.Request) {
 	}, nil)
 }
 
+func (h *Handler) handleVerifyEmail(w http.ResponseWriter, r *http.Request) {
+	var payload types.VerifyEmailPayload
+
+	if err := utils.ParseJSON(r, &payload); err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("invalid JSON payload"))
+		return
+	}
+
+	if err := utils.Validate.Struct(payload); err != nil {
+		errors := err.(validator.ValidationErrors)
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("payload validation error: %v", errors))
+		return
+	}
+
+	userId, err := utils.DecryptText(payload.UserId)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	user, err := h.store.GetUserById(string(userId))
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	if user.EmailVerified {
+		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("email already verified"))
+		return
+	}
+
+	if user.EmailVerificationExpiresAt.Valid {
+		now := time.Now()
+		if user.EmailVerificationExpiresAt.Time.Before(now) {
+			utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("token expired"))
+			return
+		}
+	} else {
+		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("token expired"))
+	}
+
+	verificationToken, err := utils.DecryptText(payload.Token)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("invalid token"))
+	}
+
+	if user.EmailVerificationToken.Valid {
+		err = auth.ComparePassword(verificationToken, user.EmailVerificationToken.String)
+		if err != nil {
+			utils.WriteError(w, http.StatusInternalServerError, err)
+			return
+		}
+	} else {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid token"))
+		return
+	}
+
+	err = h.store.VerifyEmail(user)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.WriteJSON(w, 200, "Successfully verify email", true, nil)
+}
+
 func (h *Handler) handleTest(w http.ResponseWriter, r *http.Request) {
-	encrypted, err := utils.EncryptText(`testing`)
+	encrypted, err := utils.EncryptText(`35f8a28e-487e-45d7-95f9-f67fb56a2d76`)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-
-	encoded := base64.URLEncoding.EncodeToString([]byte(encrypted))
-	decoded, _ := base64.URLEncoding.DecodeString(encoded)
+	log.Println(encrypted)
 	decrypted, err := utils.DecryptText(encrypted)
 	if err != nil {
 		log.Println(err)
 	}
-	log.Println(string(decrypted), encoded, string(decoded))
+	log.Println(string(decrypted), decrypted)
 }

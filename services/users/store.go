@@ -57,3 +57,29 @@ func (s *Store) UpdateUserVerificationExpired(user *types.User, expired time.Tim
 
 	return nil
 }
+
+func (s *Store) GetUserById(userId string) (*types.User, error) {
+	user := new(types.User)
+	query := `SELECT _id, email_verified, email_verification_token, email_verification_token_expires_at FROM users WHERE _id = $1`
+
+	if err := s.db.QueryRow(query, userId).Scan(&user.ID, &user.EmailVerified, &user.EmailVerificationToken, &user.EmailVerificationExpiresAt); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+
+		return nil, err
+	}
+
+	return user, nil
+}
+
+func (s *Store) VerifyEmail(user *types.User) error {
+	query := `UPDATE users SET email_verified = true, email_verification_token = NULL, email_verification_token_expires_at = NULL WHERE _id = $1`
+
+	_, err := s.db.Exec(query, user.ID)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

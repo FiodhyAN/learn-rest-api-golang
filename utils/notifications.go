@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
+	"log"
 	"net/smtp"
 	"time"
 
+	"github.com/FiodhyAN/learn-rest-api-golang/auth"
 	"github.com/FiodhyAN/learn-rest-api-golang/config"
 	"github.com/FiodhyAN/learn-rest-api-golang/types"
 	uuid "github.com/satori/go.uuid"
@@ -15,6 +17,7 @@ import (
 func SendVerificationMail(store types.UserStore, user *types.User) error {
 	encryptedID, err := EncryptText(user.ID)
 	if err != nil {
+		log.Println(err)
 		return err
 	}
 
@@ -79,7 +82,12 @@ func SendVerificationMail(store types.UserStore, user *types.User) error {
 		return err
 	}
 
-	if err := store.UpdateUserVerificationExpired(user, expirationDate, verificationToken); err != nil {
+	hashedToken, err := auth.CreateHashPassword(verificationToken)
+	if err != nil {
+		return err
+	}
+
+	if err := store.UpdateUserVerificationExpired(user, expirationDate, hashedToken); err != nil {
 		return err
 	}
 

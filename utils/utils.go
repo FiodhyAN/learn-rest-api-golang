@@ -6,7 +6,9 @@ import (
 	"crypto/cipher"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -52,63 +54,72 @@ func WriteError(w http.ResponseWriter, status int, err error) {
 	WriteJSON(w, status, "error", nil, err.Error())
 }
 
+var encryptKey = []byte(config.Envs.EncryptKey)
+var encryptIv = []byte(config.Envs.EncryptIv)
+
 func EncryptText(plainText string) (string, error) {
-	var plainTextBlock []byte
-	length := len(plainText)
-
-	if length%16 != 0 {
-		extendBlock := 16 - (length % 16)
-		plainTextBlock = make([]byte, length+extendBlock)
-		copy(plainTextBlock[length:], bytes.Repeat([]byte{uint8(extendBlock)}, extendBlock))
-	} else {
-		plainTextBlock = make([]byte, length)
-	}
-
-	copy(plainTextBlock, plainText)
-	block, err := aes.NewCipher([]byte(config.Envs.EncryptKey))
-
+	block, err := aes.NewCipher(encryptKey)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to create cipher: %w", err)
 	}
 
-	ciphertext := make([]byte, len(plainTextBlock))
-	mode := cipher.NewCBCEncrypter(block, []byte(config.Envs.EncryptIv))
-	mode.CryptBlocks(ciphertext, plainTextBlock)
+	plainTextPadded := PKCS7Padding([]byte(plainText), aes.BlockSize)
+	ciphertext := make([]byte, len(plainTextPadded))
 
-	str := base64.StdEncoding.EncodeToString(ciphertext)
+	mode := cipher.NewCBCEncrypter(block, encryptIv)
+	mode.CryptBlocks(ciphertext, plainTextPadded)
 
-	return str, nil
+	return base64.StdEncoding.EncodeToString(ciphertext), nil
 }
 
-func DecryptText(encryptText string) ([]byte, error) {
-	ciphertext, err := base64.StdEncoding.DecodeString(encryptText)
-
+// DecryptText decrypts the base64 encoded ciphertext
+func DecryptText(encryptedText string) (string, error) {
+	ciphertext, err := base64.StdEncoding.DecodeString(encryptedText)
 	if err != nil {
-		return nil, err
+		return "", fmt.Errorf("failed to decode base64: %w", err)
 	}
 
-	block, err := aes.NewCipher([]byte(config.Envs.EncryptKey))
-
+	block, err := aes.NewCipher(encryptKey)
 	if err != nil {
-		return nil, err
+		return "", fmt.Errorf("failed to create cipher: %w", err)
 	}
 
 	if len(ciphertext)%aes.BlockSize != 0 {
-		return nil, fmt.Errorf("block size cant be zero")
+		return "", errors.New("invalid ciphertext length")
 	}
 
-	mode := cipher.NewCBCDecrypter(block, []byte(config.Envs.EncryptIv))
+	mode := cipher.NewCBCDecrypter(block, encryptIv)
 	mode.CryptBlocks(ciphertext, ciphertext)
-	ciphertext = PKCS5UnPadding(ciphertext)
 
-	return ciphertext, nil
+	plainText, err := PKCS7UnPadding(ciphertext)
+	if err != nil {
+		return "", fmt.Errorf("failed to unpad data: %w", err)
+	}
+
+	return string(plainText), nil
 }
 
-func PKCS5UnPadding(src []byte) []byte {
-	length := len(src)
-	unpadding := int(src[length-1])
+// PKCS7Padding applies padding
+func PKCS7Padding(data []byte, blockSize int) []byte {
+	padding := blockSize - (len(data) % blockSize)
+	padText := bytes.Repeat([]byte{byte(padding)}, padding)
+	return append(data, padText...)
+}
 
-	return src[:(length - unpadding)]
+// PKCS7UnPadding removes padding
+func PKCS7UnPadding(origData []byte) ([]byte, error) {
+	length := len(origData)
+	if length == 0 {
+		return nil, errors.New("invalid padding: empty data")
+	}
+
+	unpadding := int(origData[length-1])
+	if unpadding <= 0 || unpadding > length {
+		log.Println("Invalid padding size:", unpadding, "for data length:", length)
+		return nil, fmt.Errorf("invalid padding size: %d", unpadding)
+	}
+
+	return origData[:(length - unpadding)], nil
 }
 
 func FormatDate(date time.Time) (string, error) {

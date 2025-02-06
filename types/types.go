@@ -1,11 +1,16 @@
 package types
 
-import "time"
+import (
+	"database/sql"
+	"time"
+)
 
 type UserStore interface {
 	GetUser(email string) (*User, error)
 	CreateUser(user User) (*User, error)
 	UpdateUserVerificationExpired(*User, time.Time, string) error
+	GetUserById(id string) (*User, error)
+	VerifyEmail(*User) error
 }
 
 type RegisterPayload struct {
@@ -20,6 +25,11 @@ type LoginUserPayload struct {
 	Password string `json:"password" validate:"required"`
 }
 
+type VerifyEmailPayload struct {
+	UserId string `json:"userId" validate:"required"`
+	Token  string `json:"token" validate:"required"`
+}
+
 type User struct {
 	ID                         string
 	Name                       string
@@ -27,12 +37,8 @@ type User struct {
 	Email                      string
 	Password                   string
 	Role                       string
-	EmailVerificationExpiresAt time.Time
+	EmailVerified              bool
+	EmailVerificationToken     sql.NullString
+	EmailVerificationExpiresAt sql.NullTime
 	CreatedAt                  time.Time
 }
-
-// type EmailRequest struct {
-// 	to      []string
-// 	subject string
-// 	body    string
-// }
