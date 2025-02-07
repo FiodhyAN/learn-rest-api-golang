@@ -17,32 +17,33 @@ import (
 
 func (h *Handler) handleLogin(w http.ResponseWriter, r *http.Request) {
 	var payload types.LoginUserPayload
+	errorMessage := "Login Failed"
 
 	if err := utils.ParseJSON(r, &payload); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid JSON payload"))
+		utils.WriteError(w, http.StatusBadRequest, errorMessage, fmt.Errorf("Invalid JSON Payload"))
 		return
 	}
 
 	if err := utils.Validate.Struct(payload); err != nil {
 		errors := err.(validator.ValidationErrors)
-		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("payload validation error: %v", errors))
+		utils.WriteError(w, http.StatusBadRequest, errorMessage, fmt.Errorf("Validation Error: %v", errors))
 		return
 	}
 
 	user, err := h.store.GetUser(payload.Username)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("not found, invalid email or password"))
+		utils.WriteError(w, http.StatusInternalServerError, errorMessage, fmt.Errorf("Invalid Credentials"))
 		return
 	}
 
 	if user == nil {
-		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("user does not exists"))
+		utils.WriteError(w, http.StatusBadRequest, errorMessage, fmt.Errorf("Invalid Credentials"))
 		return
 	}
 
 	err = auth.ComparePassword(payload.Password, user.Password)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("wrong password"))
+		utils.WriteError(w, http.StatusInternalServerError, errorMessage, fmt.Errorf("Invalid Credentials"))
 		return
 	}
 
@@ -51,32 +52,33 @@ func (h *Handler) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) handleRegister(w http.ResponseWriter, r *http.Request) {
 	var payload types.RegisterPayload
+	errorMessage := "Failed To Register User"
 
 	if err := utils.ParseJSON(r, &payload); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid JSON payload"))
+		utils.WriteError(w, http.StatusBadRequest, errorMessage, fmt.Errorf("Invalid JSON Payload"))
 		return
 	}
 
 	if err := utils.Validate.Struct(payload); err != nil {
 		errors := err.(validator.ValidationErrors)
-		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("payload validation error: %v", errors))
+		utils.WriteError(w, http.StatusBadRequest, errorMessage, fmt.Errorf("Validation Error: %v", errors))
 		return
 	}
 
 	user, err := h.store.GetUser(payload.Username)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, err)
+		utils.WriteError(w, http.StatusInternalServerError, errorMessage, err)
 		return
 	}
 
 	if user != nil {
-		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("user already exists"))
+		utils.WriteError(w, http.StatusBadRequest, errorMessage, fmt.Errorf("User Already Exist"))
 		return
 	}
 
 	hashedPassword, err := auth.CreateHashPassword(payload.Password)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("hash password error"))
+		utils.WriteError(w, http.StatusInternalServerError, errorMessage, fmt.Errorf("Error Hashing Password"))
 		return
 	}
 
@@ -87,7 +89,7 @@ func (h *Handler) handleRegister(w http.ResponseWriter, r *http.Request) {
 		Password: hashedPassword,
 	})
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, err)
+		utils.WriteError(w, http.StatusInternalServerError, errorMessage, err)
 		return
 	}
 
@@ -96,12 +98,12 @@ func (h *Handler) handleRegister(w http.ResponseWriter, r *http.Request) {
 
 	task, err := tasks.NewVerificationEmail(*createdUser)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, err)
+		utils.WriteError(w, http.StatusInternalServerError, errorMessage, err)
 	}
 
 	info, err := client.Enqueue(task)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, err)
+		utils.WriteError(w, http.StatusInternalServerError, errorMessage, err)
 	}
 	log.Println("info id: " + info.ID + "info queue: " + info.Queue)
 
@@ -115,64 +117,65 @@ func (h *Handler) handleRegister(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) handleVerifyEmail(w http.ResponseWriter, r *http.Request) {
 	var payload types.VerifyEmailPayload
+	errorMessage := "Email Verification Failed"
 
 	if err := utils.ParseJSON(r, &payload); err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("invalid JSON payload"))
+		utils.WriteError(w, http.StatusInternalServerError, errorMessage, fmt.Errorf("Invalid JSON Payload"))
 		return
 	}
 
 	if err := utils.Validate.Struct(payload); err != nil {
 		errors := err.(validator.ValidationErrors)
-		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("payload validation error: %v", errors))
+		utils.WriteError(w, http.StatusBadRequest, errorMessage, fmt.Errorf("Validation Error: %v", errors))
 		return
 	}
 
 	userId, err := utils.DecryptText(payload.UserId)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, err)
+		utils.WriteError(w, http.StatusInternalServerError, errorMessage, err)
 		return
 	}
 
 	user, err := h.store.GetUserById(string(userId))
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, err)
+		utils.WriteError(w, http.StatusInternalServerError, errorMessage, err)
 		return
 	}
 
 	if user.EmailVerified {
-		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("email already verified"))
+		utils.WriteError(w, http.StatusInternalServerError, errorMessage, fmt.Errorf("Email Already Verified"))
 		return
 	}
 
 	if user.EmailVerificationExpiresAt.Valid {
 		now := time.Now()
 		if user.EmailVerificationExpiresAt.Time.Before(now) {
-			utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("token expired"))
+			utils.WriteError(w, http.StatusInternalServerError, errorMessage, fmt.Errorf("Token Expired"))
 			return
 		}
 	} else {
-		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("token expired"))
+		utils.WriteError(w, http.StatusInternalServerError, errorMessage, fmt.Errorf("Token Expired"))
 	}
 
 	verificationToken, err := utils.DecryptText(payload.Token)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("invalid token"))
+		utils.WriteError(w, http.StatusInternalServerError, errorMessage, fmt.Errorf("Invalid Token"))
 	}
 
 	if user.EmailVerificationToken.Valid {
 		err = auth.ComparePassword(verificationToken, user.EmailVerificationToken.String)
 		if err != nil {
-			utils.WriteError(w, http.StatusInternalServerError, err)
+			utils.WriteError(w, http.StatusInternalServerError, errorMessage, err)
 			return
 		}
 	} else {
-		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid token"))
+		utils.WriteError(w, http.StatusBadRequest, errorMessage, fmt.Errorf("Invalid Token"))
 		return
 	}
 
 	err = h.store.VerifyEmail(user)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, err)
+		utils.WriteError(w, http.StatusInternalServerError, errorMessage, err)
 		return
 	}
 

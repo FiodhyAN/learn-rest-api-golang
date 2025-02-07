@@ -50,8 +50,8 @@ func WriteJSON(w http.ResponseWriter, status int, message string, value interfac
 	return json.NewEncoder(w).Encode(response)
 }
 
-func WriteError(w http.ResponseWriter, status int, err error) {
-	WriteJSON(w, status, "error", nil, err.Error())
+func WriteError(w http.ResponseWriter, status int, message string, err error) {
+	WriteJSON(w, status, message, nil, err.Error())
 }
 
 var encryptKey = []byte(config.Envs.EncryptKey)
