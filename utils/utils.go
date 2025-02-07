@@ -72,7 +72,6 @@ func EncryptText(plainText string) (string, error) {
 	return base64.StdEncoding.EncodeToString(ciphertext), nil
 }
 
-// DecryptText decrypts the base64 encoded ciphertext
 func DecryptText(encryptedText string) (string, error) {
 	ciphertext, err := base64.StdEncoding.DecodeString(encryptedText)
 	if err != nil {
@@ -99,14 +98,12 @@ func DecryptText(encryptedText string) (string, error) {
 	return string(plainText), nil
 }
 
-// PKCS7Padding applies padding
 func PKCS7Padding(data []byte, blockSize int) []byte {
 	padding := blockSize - (len(data) % blockSize)
 	padText := bytes.Repeat([]byte{byte(padding)}, padding)
 	return append(data, padText...)
 }
 
-// PKCS7UnPadding removes padding
 func PKCS7UnPadding(origData []byte) ([]byte, error) {
 	length := len(origData)
 	if length == 0 {
