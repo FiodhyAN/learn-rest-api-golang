@@ -1,3 +1,6 @@
 {
-  "conventionalCommits.scopes": ["Connect and migrate table to database"]
+  "conventionalCommits.scopes": [
+    "Connect and migrate table to database",
+    "Authentication"
+  ]
 }

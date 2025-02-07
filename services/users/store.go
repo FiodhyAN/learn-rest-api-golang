@@ -2,7 +2,6 @@ package users
 
 import (
 	"database/sql"
-	"fmt"
 	"time"
 
 	"github.com/FiodhyAN/learn-rest-api-golang/types"
@@ -19,12 +18,12 @@ func NewUserStore(db *sql.DB) *Store {
 func (s *Store) GetUser(username string) (*types.User, error) {
 	user := new(types.User)
 
-	if err := s.db.QueryRow("SELECT * FROM users WHERE email = $1 OR username = $1", username).Scan(&user.ID, &user.Username, &user.Email, &user.Password, &user.CreatedAt); err != nil {
+	if err := s.db.QueryRow("SELECT _id, username, email, password, email_verified, email_verification_token_expires_at FROM users WHERE email = $1 OR username = $1", username).Scan(&user.ID, &user.Username, &user.Email, &user.Password, &user.EmailVerified, &user.EmailVerificationExpiresAt); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
 
-		return nil, fmt.Errorf("query database error")
+		return nil, err
 	}
 
 	return user, nil

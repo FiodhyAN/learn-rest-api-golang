@@ -14,6 +14,7 @@ import (
 
 	"github.com/FiodhyAN/learn-rest-api-golang/config"
 	"github.com/go-playground/validator/v10"
+	"github.com/hibiken/asynq"
 )
 
 var Validate = validator.New()
@@ -131,4 +132,17 @@ func FormatDate(date time.Time) (string, error) {
 	finalFormattedDate := fmt.Sprintf("%s (%s)", formattedDate, timeZoneName)
 
 	return finalFormattedDate, nil
+}
+
+func EnqueueTask(task *asynq.Task) error {
+	client := asynq.NewClient(asynq.RedisClientOpt{Addr: config.Envs.RedisHost + ":" + config.Envs.RedisPort})
+	defer client.Close()
+
+	info, err := client.Enqueue(task)
+	if err != nil {
+		return err
+	}
+
+	log.Println("info id: " + info.ID + " info queue: " + info.Queue)
+	return nil
 }
