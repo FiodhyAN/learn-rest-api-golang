@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/FiodhyAN/learn-rest-api-golang/auth"
+	"github.com/FiodhyAN/learn-rest-api-golang/config"
+	"github.com/FiodhyAN/learn-rest-api-golang/helpers"
 	"github.com/FiodhyAN/learn-rest-api-golang/tasks"
 	"github.com/FiodhyAN/learn-rest-api-golang/types"
 	"github.com/FiodhyAN/learn-rest-api-golang/utils"
@@ -17,31 +19,31 @@ func (h *Handler) handleLogin(w http.ResponseWriter, r *http.Request) {
 	var payload types.LoginUserPayload
 	errorMessage := "Login Failed"
 
-	if err := utils.ParseJSON(r, &payload); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, errorMessage, fmt.Errorf("invalid json payload"))
+	if err := helpers.ParseJSON(r, &payload); err != nil {
+		helpers.WriteError(w, http.StatusBadRequest, errorMessage, fmt.Errorf("invalid json payload"))
 		return
 	}
 
 	if err := utils.Validate.Struct(payload); err != nil {
 		errors := err.(validator.ValidationErrors)
-		utils.WriteError(w, http.StatusBadRequest, errorMessage, fmt.Errorf("validation error: %v", errors))
+		helpers.WriteError(w, http.StatusBadRequest, errorMessage, fmt.Errorf("validation error: %v", errors))
 		return
 	}
 
 	user, err := h.store.GetUser(payload.Username)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, errorMessage, err)
+		helpers.WriteError(w, http.StatusInternalServerError, errorMessage, err)
 		return
 	}
 
 	if user == nil {
-		utils.WriteError(w, http.StatusBadRequest, errorMessage, fmt.Errorf("user not found"))
+		helpers.WriteError(w, http.StatusBadRequest, errorMessage, fmt.Errorf("user not found"))
 		return
 	}
 
 	err = auth.ComparePassword(payload.Password, user.Password)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, errorMessage, err)
+		helpers.WriteError(w, http.StatusInternalServerError, errorMessage, err)
 		return
 	}
 
@@ -49,51 +51,64 @@ func (h *Handler) handleLogin(w http.ResponseWriter, r *http.Request) {
 		if time.Now().After(user.EmailVerificationExpiresAt.Time) {
 			task, err := tasks.NewVerificationEmail(*user)
 			if err != nil {
-				utils.WriteError(w, http.StatusInternalServerError, errorMessage, err)
+				helpers.WriteError(w, http.StatusInternalServerError, errorMessage, err)
 				return
 			}
 
 			if err := utils.EnqueueTask(task); err != nil {
-				utils.WriteError(w, http.StatusInternalServerError, errorMessage, err)
+				helpers.WriteError(w, http.StatusInternalServerError, errorMessage, err)
 				return
 			}
 		}
-		utils.WriteError(w, http.StatusBadRequest, errorMessage, fmt.Errorf("email not verified, please verify your email"))
+		helpers.WriteError(w, http.StatusBadRequest, errorMessage, fmt.Errorf("email not verified, please verify your email"))
 		return
 	}
 
-	utils.WriteJSON(w, http.StatusOK, "Login Successfully", map[string]string{"username": user.Username, "email": user.Email}, nil)
+	secret := []byte(config.Envs.JWTSecret)
+	token, err := auth.CreateJWT(secret, user.ID)
+	if err != nil {
+		helpers.WriteError(w, http.StatusInternalServerError, errorMessage, err)
+		return
+	}
+
+	response := types.LoginResponse{
+		Username: user.Username,
+		Email:    user.Email,
+		Token:    token,
+	}
+
+	helpers.WriteJSON(w, http.StatusOK, "Login Successfully", response, nil)
 }
 
 func (h *Handler) handleRegister(w http.ResponseWriter, r *http.Request) {
 	var payload types.RegisterPayload
 	errorMessage := "Failed To Register User"
 
-	if err := utils.ParseJSON(r, &payload); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, errorMessage, fmt.Errorf("invalid json payload"))
+	if err := helpers.ParseJSON(r, &payload); err != nil {
+		helpers.WriteError(w, http.StatusBadRequest, errorMessage, fmt.Errorf("invalid json payload"))
 		return
 	}
 
 	if err := utils.Validate.Struct(payload); err != nil {
 		errors := err.(validator.ValidationErrors)
-		utils.WriteError(w, http.StatusBadRequest, errorMessage, fmt.Errorf("validation error: %v", errors))
+		helpers.WriteError(w, http.StatusBadRequest, errorMessage, fmt.Errorf("validation error: %v", errors))
 		return
 	}
 
 	user, err := h.store.GetUser(payload.Username)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, errorMessage, err)
+		helpers.WriteError(w, http.StatusInternalServerError, errorMessage, err)
 		return
 	}
 
 	if user != nil {
-		utils.WriteError(w, http.StatusBadRequest, errorMessage, fmt.Errorf("username or email already exist"))
+		helpers.WriteError(w, http.StatusBadRequest, errorMessage, fmt.Errorf("username or email already exist"))
 		return
 	}
 
 	hashedPassword, err := auth.CreateHashPassword(payload.Password)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, errorMessage, fmt.Errorf("error creating password"))
+		helpers.WriteError(w, http.StatusInternalServerError, errorMessage, fmt.Errorf("error creating password"))
 		return
 	}
 
@@ -104,22 +119,22 @@ func (h *Handler) handleRegister(w http.ResponseWriter, r *http.Request) {
 		Password: hashedPassword,
 	})
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, errorMessage, err)
+		helpers.WriteError(w, http.StatusInternalServerError, errorMessage, err)
 		return
 	}
 
 	task, err := tasks.NewVerificationEmail(*createdUser)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, errorMessage, err)
+		helpers.WriteError(w, http.StatusInternalServerError, errorMessage, err)
 		return
 	}
 
 	if err := utils.EnqueueTask(task); err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, errorMessage, err)
+		helpers.WriteError(w, http.StatusInternalServerError, errorMessage, err)
 		return
 	}
 
-	utils.WriteJSON(w, http.StatusOK, "Successfully registered", map[string]string{
+	helpers.WriteJSON(w, http.StatusOK, "Successfully registered", map[string]string{
 		"Name":     payload.Name,
 		"username": payload.Username,
 		"email":    payload.Email,
@@ -131,70 +146,72 @@ func (h *Handler) handleVerifyEmail(w http.ResponseWriter, r *http.Request) {
 	var payload types.VerifyEmailPayload
 	errorMessage := "Email Verification Failed"
 
-	if err := utils.ParseJSON(r, &payload); err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, errorMessage, fmt.Errorf("invalid json payload"))
+	if err := helpers.ParseJSON(r, &payload); err != nil {
+		helpers.WriteError(w, http.StatusInternalServerError, errorMessage, fmt.Errorf("invalid json payload"))
 		return
 	}
 
 	if err := utils.Validate.Struct(payload); err != nil {
 		errors := err.(validator.ValidationErrors)
-		utils.WriteError(w, http.StatusBadRequest, errorMessage, fmt.Errorf("validation error: %v", errors))
+		helpers.WriteError(w, http.StatusBadRequest, errorMessage, fmt.Errorf("validation error: %v", errors))
 		return
 	}
 
 	userId, err := utils.DecryptText(payload.UserId)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, errorMessage, err)
+		helpers.WriteError(w, http.StatusInternalServerError, errorMessage, err)
 		return
 	}
 
 	user, err := h.store.GetUserById(string(userId))
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, errorMessage, err)
+		helpers.WriteError(w, http.StatusInternalServerError, errorMessage, err)
 		return
 	}
 
 	if user.EmailVerified {
-		utils.WriteError(w, http.StatusInternalServerError, errorMessage, fmt.Errorf("email already verified"))
+		helpers.WriteError(w, http.StatusInternalServerError, errorMessage, fmt.Errorf("email already verified"))
 		return
 	}
 
 	if user.EmailVerificationExpiresAt.Valid {
 		now := time.Now()
 		if user.EmailVerificationExpiresAt.Time.Before(now) {
-			utils.WriteError(w, http.StatusInternalServerError, errorMessage, fmt.Errorf("token expired"))
+			helpers.WriteError(w, http.StatusInternalServerError, errorMessage, fmt.Errorf("token expired"))
 			return
 		}
 	} else {
-		utils.WriteError(w, http.StatusInternalServerError, errorMessage, fmt.Errorf("token expired"))
+		helpers.WriteError(w, http.StatusInternalServerError, errorMessage, fmt.Errorf("token expired"))
 	}
 
 	verificationToken, err := utils.DecryptText(payload.Token)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, errorMessage, fmt.Errorf("invalid token"))
+		helpers.WriteError(w, http.StatusInternalServerError, errorMessage, fmt.Errorf("invalid token"))
 	}
 
 	if user.EmailVerificationToken.Valid {
 		err = auth.ComparePassword(verificationToken, user.EmailVerificationToken.String)
 		if err != nil {
-			utils.WriteError(w, http.StatusInternalServerError, errorMessage, err)
+			helpers.WriteError(w, http.StatusInternalServerError, errorMessage, err)
 			return
 		}
 	} else {
-		utils.WriteError(w, http.StatusBadRequest, errorMessage, fmt.Errorf("invalid token"))
+		helpers.WriteError(w, http.StatusBadRequest, errorMessage, fmt.Errorf("invalid token"))
 		return
 	}
 
 	err = h.store.VerifyEmail(user)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, errorMessage, err)
+		helpers.WriteError(w, http.StatusInternalServerError, errorMessage, err)
 		return
 	}
 
-	utils.WriteJSON(w, 200, "Successfully verify email", true, nil)
+	helpers.WriteJSON(w, 200, "Successfully verify email", true, nil)
 }
 
 func (h *Handler) handleTest(w http.ResponseWriter, r *http.Request) {
+	userID := auth.GetUserIdFromContext(r.Context())
+	log.Println(userID)
 	encrypted, err := utils.EncryptText(`35f8a28e-487e-45d7-95f9-f67fb56a2d76`)
 	if err != nil {
 		log.Println(err)

@@ -8,8 +8,8 @@ import (
 	"net/smtp"
 	"time"
 
-	"github.com/FiodhyAN/learn-rest-api-golang/auth"
 	"github.com/FiodhyAN/learn-rest-api-golang/config"
+	"github.com/FiodhyAN/learn-rest-api-golang/helpers"
 	"github.com/FiodhyAN/learn-rest-api-golang/types"
 	uuid "github.com/satori/go.uuid"
 )
@@ -82,7 +82,7 @@ func SendVerificationMail(store types.UserStore, user *types.User) error {
 		return err
 	}
 
-	hashedToken, err := auth.CreateHashPassword(verificationToken)
+	hashedToken, err := helpers.CreateHashPassword(verificationToken)
 	if err != nil {
 		return err
 	}

@@ -25,6 +25,12 @@ type LoginUserPayload struct {
 	Password string `json:"password" validate:"required"`
 }
 
+type LoginResponse struct {
+	Username string `json:"username"`
+	Email    string `json:"email"`
+	Token    string `json:"token"`
+}
+
 type VerifyEmailPayload struct {
 	UserId string `json:"userId" validate:"required"`
 	Token  string `json:"token" validate:"required"`
