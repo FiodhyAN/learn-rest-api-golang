@@ -62,7 +62,7 @@ func VerifyToken(handlerFunc http.HandlerFunc, store types.UserStore) http.Handl
 		}
 
 		ctx := r.Context()
-		ctx = context.WithValue(ctx, "userID", u.ID)
+		ctx = context.WithValue(ctx, UserKey, u.ID)
 		r = r.WithContext(ctx)
 
 		handlerFunc(w, r)
@@ -70,10 +70,14 @@ func VerifyToken(handlerFunc http.HandlerFunc, store types.UserStore) http.Handl
 }
 
 func getTokenFromRequest(r *http.Request) string {
-	token := r.Header.Get("Authorization")
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		return ""
+	}
 
-	if token != "" {
-		return token
+	const bearerPrefix = "Bearer "
+	if len(authHeader) > len(bearerPrefix) && authHeader[:len(bearerPrefix)] == bearerPrefix {
+		return authHeader[len(bearerPrefix):]
 	}
 
 	return ""
@@ -90,7 +94,7 @@ func validateToken(t string) (*jwt.Token, error) {
 }
 
 func permissionDenied(w http.ResponseWriter) {
-	helpers.WriteError(w, http.StatusForbidden, "Forbidden", fmt.Errorf("Permission Denied"))
+	helpers.WriteError(w, http.StatusForbidden, "Forbidden", fmt.Errorf("permission denied"))
 }
 
 func GetUserIdFromContext(ctx context.Context) string {
