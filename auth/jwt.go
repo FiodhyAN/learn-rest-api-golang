@@ -11,13 +11,14 @@ import (
 	"github.com/FiodhyAN/learn-rest-api-golang/helpers"
 	"github.com/FiodhyAN/learn-rest-api-golang/types"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 )
 
 type contextKey string
 
 const UserKey contextKey = "userID"
 
-func CreateJWT(secret []byte, userID string) (string, error) {
+func CreateJWT(secret []byte, userID uuid.UUID) (string, error) {
 	expiration := time.Second * time.Duration(config.Envs.JWTExpirationInSeconds)
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"userID":    userID,
@@ -52,9 +53,14 @@ func VerifyToken(handlerFunc http.HandlerFunc, store types.UserStore) http.Handl
 		claims := token.Claims.(jwt.MapClaims)
 		str := claims["userID"].(string)
 
-		userID := str
+		userID, err := uuid.Parse(str)
+		if err != nil {
+			log.Printf("failed to get user id: %v", err)
+			permissionDenied(w)
+			return
+		}
 
-		u, err := store.GetUserById(userID)
+		u, err := store.GetUserById(r.Context(), userID)
 		if err != nil {
 			log.Printf("failed to get user id: %v", err)
 			permissionDenied(w)

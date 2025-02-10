@@ -1,6 +1,7 @@
 {
   "conventionalCommits.scopes": [
     "Connect and migrate table to database",
-    "Authentication"
+    "Authentication",
+    "Refactor"
   ]
 }

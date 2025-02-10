@@ -2,6 +2,7 @@ package utils
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"html/template"
 	"log"
@@ -11,7 +12,7 @@ import (
 	"github.com/FiodhyAN/learn-rest-api-golang/config"
 	"github.com/FiodhyAN/learn-rest-api-golang/helpers"
 	"github.com/FiodhyAN/learn-rest-api-golang/types"
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 )
 
 func SendVerificationMail(store types.UserStore, user *types.User) error {
@@ -21,8 +22,11 @@ func SendVerificationMail(store types.UserStore, user *types.User) error {
 		return err
 	}
 
-	uuid := uuid.NewV4()
-	verificationToken := uuid.String() + user.ID
+	uuidV7, err := uuid.NewV7()
+	if err != nil {
+		return err
+	}
+	verificationToken := uuidV7.String() + user.ID
 	encryptedVerificationToken, err := EncryptText(verificationToken)
 	if err != nil {
 		return err
@@ -87,7 +91,12 @@ func SendVerificationMail(store types.UserStore, user *types.User) error {
 		return err
 	}
 
-	if err := store.UpdateUserVerificationExpired(user, expirationDate, hashedToken); err != nil {
+	ctx := context.Background()
+	userUUID, err := uuid.Parse(user.ID)
+	if err != nil {
+		return err
+	}
+	if err := store.UpdateUserVerificationExpired(ctx, userUUID, expirationDate, hashedToken); err != nil {
 		return err
 	}
 

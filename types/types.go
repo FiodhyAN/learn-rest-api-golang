@@ -1,16 +1,20 @@
 package types
 
 import (
+	"context"
 	"database/sql"
 	"time"
+
+	"github.com/FiodhyAN/learn-rest-api-golang/internal/repository"
+	"github.com/google/uuid"
 )
 
 type UserStore interface {
-	GetUser(email string) (*User, error)
-	CreateUser(user User) (*User, error)
-	UpdateUserVerificationExpired(*User, time.Time, string) error
-	GetUserById(id string) (*User, error)
-	VerifyEmail(*User) error
+	GetUser(ctx context.Context, email string) (*repository.User, error)
+	CreateUser(ctx context.Context, user repository.CreateUserParams) (*repository.User, error)
+	UpdateUserVerificationExpired(ctx context.Context, userId uuid.UUID, expiresAt time.Time, token string) error
+	GetUserById(ctx context.Context, id uuid.UUID) (*repository.User, error)
+	VerifyEmail(ctx context.Context, userId uuid.UUID) error
 }
 
 type RegisterPayload struct {

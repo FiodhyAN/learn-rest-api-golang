@@ -1,0 +1,19 @@
+version: "2"
+cloud:
+  organization: ""
+  project: ""
+  hostname: ""
+servers: []
+sql:
+  - engine: "postgresql"
+    schema: ["./cmd/migrate/migrations"]
+    queries: "query.sql"
+    gen:
+      go:
+        package: "repository"
+        out: "internal/repository"
+overrides:
+  go: null
+plugins: []
+rules: []
+options: {}

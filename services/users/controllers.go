@@ -9,10 +9,12 @@ import (
 	"github.com/FiodhyAN/learn-rest-api-golang/auth"
 	"github.com/FiodhyAN/learn-rest-api-golang/config"
 	"github.com/FiodhyAN/learn-rest-api-golang/helpers"
+	"github.com/FiodhyAN/learn-rest-api-golang/internal/repository"
 	"github.com/FiodhyAN/learn-rest-api-golang/tasks"
 	"github.com/FiodhyAN/learn-rest-api-golang/types"
 	"github.com/FiodhyAN/learn-rest-api-golang/utils"
 	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 )
 
 func (h *Handler) handleLogin(w http.ResponseWriter, r *http.Request) {
@@ -30,7 +32,7 @@ func (h *Handler) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.store.GetUser(payload.Username)
+	user, err := h.store.GetUser(r.Context(), payload.Username)
 	if err != nil {
 		helpers.WriteError(w, http.StatusInternalServerError, errorMessage, err)
 		return
@@ -48,7 +50,7 @@ func (h *Handler) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !user.EmailVerified {
-		if time.Now().After(user.EmailVerificationExpiresAt.Time) {
+		if time.Now().After(user.EmailVerificationTokenExpiresAt.Time) {
 			task, err := tasks.NewVerificationEmail(*user)
 			if err != nil {
 				helpers.WriteError(w, http.StatusInternalServerError, errorMessage, err)
@@ -95,7 +97,7 @@ func (h *Handler) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.store.GetUser(payload.Username)
+	user, err := h.store.GetUser(r.Context(), payload.Username)
 	if err != nil {
 		helpers.WriteError(w, http.StatusInternalServerError, errorMessage, err)
 		return
@@ -112,7 +114,7 @@ func (h *Handler) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	createdUser, err := h.store.CreateUser(types.User{
+	createdUser, err := h.store.CreateUser(r.Context(), repository.CreateUserParams{
 		Name:     payload.Name,
 		Username: payload.Username,
 		Email:    payload.Email,
@@ -157,13 +159,19 @@ func (h *Handler) handleVerifyEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userId, err := utils.DecryptText(payload.UserId)
+	userIdString, err := utils.DecryptText(payload.UserId)
 	if err != nil {
 		helpers.WriteError(w, http.StatusInternalServerError, errorMessage, err)
 		return
 	}
 
-	user, err := h.store.GetUserById(string(userId))
+	userId, err := uuid.Parse(userIdString)
+	if err != nil {
+		helpers.WriteError(w, http.StatusInternalServerError, errorMessage, err)
+		return
+	}
+
+	user, err := h.store.GetUserById(r.Context(), userId)
 	if err != nil {
 		helpers.WriteError(w, http.StatusInternalServerError, errorMessage, err)
 		return
@@ -174,9 +182,9 @@ func (h *Handler) handleVerifyEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if user.EmailVerificationExpiresAt.Valid {
+	if user.EmailVerificationTokenExpiresAt.Valid {
 		now := time.Now()
-		if user.EmailVerificationExpiresAt.Time.Before(now) {
+		if user.EmailVerificationTokenExpiresAt.Time.Before(now) {
 			helpers.WriteError(w, http.StatusInternalServerError, errorMessage, fmt.Errorf("token expired"))
 			return
 		}
@@ -200,7 +208,7 @@ func (h *Handler) handleVerifyEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.store.VerifyEmail(user)
+	err = h.store.VerifyEmail(r.Context(), user.ID)
 	if err != nil {
 		helpers.WriteError(w, http.StatusInternalServerError, errorMessage, err)
 		return
